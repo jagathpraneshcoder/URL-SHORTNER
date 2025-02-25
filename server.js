@@ -8,10 +8,10 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true,
-});
+mongoose
+  .connect(process.env.MONGO_URI)
+  .then(() => console.log("✅ MongoDB Connected Successfully"))
+  .catch((err) => console.error("❌ MongoDB Connection Error:", err));
 
 const urlSchema = new mongoose.Schema({
   shortUrl: String,
@@ -22,8 +22,20 @@ const urlSchema = new mongoose.Schema({
 const URL = mongoose.model("URL", urlSchema);
 
 app.post("/shorten", async (req, res) => {
-  const { longUrl } = req.body;
-  const shortUrl = ShortId.generate();
+  const { longUrl, customShortUrl } = req.body;
+  let shortUrl;
+
+  // Check if a custom short URL is provided
+  if (customShortUrl) {
+    // Ensure the custom short URL is unique
+    const existingUrl = await URL.findOne({ shortUrl: customShortUrl });
+    if (existingUrl) {
+      return res.status(400).json({ error: "Custom short URL already taken" });
+    }
+    shortUrl = customShortUrl;
+  } else {
+    shortUrl = ShortId.generate();
+  }
 
   const newUrl = new URL({ shortUrl, longUrl });
   await newUrl.save();
